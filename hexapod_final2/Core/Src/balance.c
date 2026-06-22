@@ -2,13 +2,13 @@
 #include "balance.h"
 #include "ebimu.h"
 
-#define BALANCE_KP_ROLL         1.0f
+#define BALANCE_KP_ROLL         1.40f
 #define BALANCE_KD_ROLL         0.0f
-#define BALANCE_KP_PITCH        1.0f
+#define BALANCE_KP_PITCH        1.40f
 #define BALANCE_KD_PITCH        0.0f
 #define BALANCE_DEADBAND_DEG    0.2f
 #define BALANCE_FILTER_ALPHA    0.25f
-#define BALANCE_MAX_STEP_CMD    1.0f
+#define BALANCE_MAX_STEP_CMD    0.8f
 
 volatile float balance_base_roll = 0.0f;
 volatile float balance_base_pitch = 0.0f;
@@ -176,3 +176,6 @@ static float Balance_LimitStep(float target, float current, float max_step)
 
     return target;
 }
+
+
+

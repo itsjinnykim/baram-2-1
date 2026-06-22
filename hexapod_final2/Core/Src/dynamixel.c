@@ -22,8 +22,8 @@ extern UART_HandleTypeDef huart6;
 
 #define DXL_TEST_POS_A      480
 #define DXL_TEST_POS_B      544
-#define DXL_SAFE_DELTA_TICK 30
-#define DXL_BALANCE_SPEED   80
+#define DXL_SAFE_DELTA_TICK 40
+#define DXL_BALANCE_SPEED   55
 
 #define DXL_DIAG_OK             0
 #define DXL_DIAG_TX_FAIL        1
@@ -42,12 +42,12 @@ static const uint8_t dxl_ids[] = {
 };
 
 static const uint16_t dxl_home_position[18] = {
-    444, 466, 166,
-    183, 456, 155,
-    203, 447, 166,
-    201, 490, 138,
-    190, 465, 145,
-    200, 472, 137
+    509, 465, 165,
+    203, 457, 154,
+    200, 448, 162,
+    198, 491, 139,
+    190, 474, 145,
+    199, 484, 128
 };
 
 volatile uint8_t dxl_current_id = 0;
@@ -56,6 +56,7 @@ volatile uint16_t dxl_present_position = 0;
 volatile uint8_t dxl_last_error = 0;
 volatile uint8_t dxl_last_comm_ok = 0;
 volatile uint8_t dxl_last_diag = DXL_DIAG_OK;
+
 volatile uint8_t dxl_last_rx0 = 0;
 volatile uint8_t dxl_last_rx1 = 0;
 volatile uint8_t dxl_last_rx2 = 0;
@@ -64,6 +65,7 @@ volatile uint8_t dxl_last_rx4 = 0;
 volatile uint8_t dxl_last_rx5 = 0;
 volatile uint8_t dxl_last_rx6 = 0;
 volatile uint8_t dxl_last_rx7 = 0;
+
 volatile uint32_t dxl_loop_count = 0;
 volatile uint32_t dxl_comm_success_count = 0;
 volatile uint32_t dxl_comm_fail_count = 0;
@@ -99,24 +101,19 @@ void DXL_TorqueEnableAll(void)
         uint8_t ok;
 
         dxl_current_id = id;
-        ok = DXL_Write1Byte(id, DXL_ADDR_TORQUE_ENABLE, DXL_IsMovingID(id) ? 1 : 0);
+        ok = DXL_Write1Byte(id, DXL_ADDR_TORQUE_ENABLE, 1);
         dxl_last_comm_ok = ok;
         DXL_RecordCommResult(id, ok);
         HAL_Delay(20);
 
-        if (DXL_IsMovingID(id))
-        {
-            ok = DXL_Write2Byte(id, DXL_ADDR_MOVING_SPEED, DXL_BALANCE_SPEED);
-            dxl_last_comm_ok = ok;
-            DXL_RecordCommResult(id, ok);
-            HAL_Delay(20);
-        }
+        ok = DXL_Write2Byte(id, DXL_ADDR_MOVING_SPEED, DXL_BALANCE_SPEED);
+        dxl_last_comm_ok = ok;
+        DXL_RecordCommResult(id, ok);
+        HAL_Delay(20);
 
-       
         HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
     }
 }
-
 void DXL_TorqueDisableAll(void)
 {
     for (uint32_t i = 0; i < sizeof(dxl_ids) / sizeof(dxl_ids[0]); i++)
@@ -168,14 +165,10 @@ void DXL_MoveHomePosition(void)
     {
         uint8_t id = dxl_ids[i];
 
-        if (DXL_IsMovingID(id))
-        {
-            (void)DXL_WriteGoalPosition(id, dxl_home_position[id]);
-            HAL_Delay(20);
-        }
+        (void)DXL_WriteGoalPosition(id, dxl_home_position[id]);
+        HAL_Delay(20);
     }
 }
-
 void DXL_RunReferenceMotionTest(void)
 {
     static uint8_t toggle = 0;
@@ -281,7 +274,8 @@ uint8_t DXL_SyncWriteSafeGoalPositions(const uint8_t *ids, const uint16_t *posit
         packet[index++] = (safe_position >> 8) & 0xFF;
     }
 
-    packet[index++] = DXL_Checksum(packet, index + 1U);
+    packet[index] = DXL_Checksum(packet, index + 1U);
+    index++;
 
     if (DXL_SendPacket(packet, index) != HAL_OK)
     {
@@ -644,3 +638,8 @@ static void DXL_SaveLastRx(uint8_t *rx, uint8_t length)
     dxl_last_rx6 = (length > 6) ? rx[6] : 0;
     dxl_last_rx7 = (length > 7) ? rx[7] : 0;
 }
+
+
+
+
+

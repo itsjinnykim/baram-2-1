@@ -7,29 +7,31 @@
 #define RAD_TO_DEG              (180.0f / PI_F)
 
 #define HEXAPOD_COXA_LEN_MM     50.0f
-#define HEXAPOD_FEMUR_LEN_MM    70.0f
-#define HEXAPOD_TIBIA_LEN_MM    150.0f
+#define HEXAPOD_FEMUR_LEN_MM    65.0f
+#define HEXAPOD_TIBIA_LEN_MM    120.0f
 
 #define BALANCE_ROLL_Z_GAIN     1.0f
 #define BALANCE_PITCH_Z_GAIN    1.0f
-#define JOINT_MAX_DELTA_TICK    30
+#define BALANCE_SIDE_RADIUS_MM  197.0f
+#define BALANCE_FRONT_RADIUS_MM 227.5f
+#define JOINT_MAX_DELTA_TICK    40
 
 static const Vec3f leg_home_foot[LEG_COUNT] = {
-    { 260.0f,    0.0f, -160.0f },
-    { 130.0f,  225.2f, -160.0f },
-    {-130.0f,  225.2f, -160.0f },
-    {-260.0f,    0.0f, -160.0f },
-    {-130.0f, -225.2f, -160.0f },
-    { 130.0f, -225.2f, -160.0f }
+    { 227.5f,    0.0f,  -67.0f },
+    { 113.8f, -197.0f,  -67.0f },
+    {-113.8f, -197.0f,  -67.0f },
+    {-227.5f,    0.0f,  -67.0f },
+    {-113.8f,  197.0f,  -67.0f },
+    { 113.8f,  197.0f,  -67.0f }
 };
 
 static const Vec3f leg_base_position[LEG_COUNT] = {
-    { 140.0f,    0.0f, 0.0f },
-    {  70.0f,  121.2f, 0.0f },
-    { -70.0f,  121.2f, 0.0f },
-    {-140.0f,    0.0f, 0.0f },
-    { -70.0f, -121.2f, 0.0f },
-    {  70.0f, -121.2f, 0.0f }
+    { 127.5f,    0.0f,    0.0f },
+    {  63.8f, -110.4f,    0.0f },
+    { -63.8f, -110.4f,    0.0f },
+    {-127.5f,    0.0f,    0.0f },
+    { -63.8f,  110.4f,    0.0f },
+    {  63.8f,  110.4f,    0.0f }
 };
 
 static const uint8_t joint_dxl_id[LEG_COUNT][JOINTS_PER_LEG] = {
@@ -45,18 +47,18 @@ static const int8_t joint_direction[LEG_COUNT][JOINTS_PER_LEG] = {
     {  1,  1,  1 },
     {  1,  1,  1 },
     {  1,  1,  1 },
-    { -1, -1, -1 },
-    { -1, -1, -1 },
-    { -1, -1, -1 }
+    {  1,  1,  1 },
+    {  1,  1,  1 },
+    {  1,  1,  1 }
 };
 
 static const uint16_t joint_center_position[LEG_COUNT][JOINTS_PER_LEG] = {
-    { 444, 466, 166 },
-    { 183, 456, 155 },
-    { 203, 447, 166 },
-    { 201, 490, 138 },
-    { 190, 465, 145 },
-    { 200, 472, 137 }
+    { 509, 465, 165 },
+    { 203, 457, 154 },
+    { 200, 448, 162 },
+    { 198, 491, 139 },
+    { 190, 474, 145 },
+    { 199, 484, 128 }
 };
 
 volatile float leg_target_x[LEG_COUNT] = {0.0f};
@@ -67,6 +69,9 @@ volatile float leg_joint_angle_deg[LEG_COUNT][JOINTS_PER_LEG] = {{0.0f}};
 volatile uint16_t leg_goal_position[LEG_COUNT][JOINTS_PER_LEG] = {{0}};
 volatile uint8_t leg_joint_id[LEG_COUNT][JOINTS_PER_LEG] = {{0}};
 volatile uint8_t leg_ik_ok[LEG_COUNT] = {0};
+volatile float leg_roll_z_offset[LEG_COUNT] = {0.0f};
+volatile float leg_pitch_z_offset[LEG_COUNT] = {0.0f};
+volatile float leg_balance_z_offset[LEG_COUNT] = {0.0f};
 volatile uint32_t kinematics_update_count = 0;
 
 static float clamp_float(float value, float min_value, float max_value);
@@ -113,11 +118,23 @@ void Kinematics_UpdateFromBalance(float roll_cmd, float pitch_cmd)
     {
         Vec3f target = leg_home_foot[leg];
         LegJointAngles angles;
-        float side_sign = (target.y >= 0.0f) ? 1.0f : -1.0f;
-        float front_sign = (target.x >= 0.0f) ? 1.0f : -1.0f;
+        float side_factor = target.y / BALANCE_SIDE_RADIUS_MM;
+        float front_factor = target.x / BALANCE_FRONT_RADIUS_MM;
+        float roll_z;
+        float pitch_z;
 
-        target.z += (roll_cmd * side_sign * BALANCE_ROLL_Z_GAIN);
-        target.z += (pitch_cmd * front_sign * BALANCE_PITCH_Z_GAIN);
+        side_factor = clamp_float(side_factor, -1.0f, 1.0f);
+        front_factor = clamp_float(front_factor, -1.0f, 1.0f);
+
+        roll_z = roll_cmd * side_factor * BALANCE_ROLL_Z_GAIN;
+        pitch_z = pitch_cmd * front_factor * BALANCE_PITCH_Z_GAIN;
+
+        target.z += roll_z;
+        target.z += pitch_z;
+
+        leg_roll_z_offset[leg] = roll_z;
+        leg_pitch_z_offset[leg] = pitch_z;
+        leg_balance_z_offset[leg] = roll_z + pitch_z;
 
         leg_target_x[leg] = target.x;
         leg_target_y[leg] = target.y;
@@ -244,7 +261,7 @@ uint16_t Kinematics_AngleToDynamixel(uint8_t leg, uint8_t joint, float angle_deg
 
 uint8_t Kinematics_GetJointID(uint8_t leg, uint8_t joint)
 {
-    if (leg >= LEG_COUNT || joint >= JOINTS_PER_LEG)
+        if (leg >= LEG_COUNT || joint >= JOINTS_PER_LEG)
     {
         return 0xFF;
     }
@@ -266,3 +283,6 @@ static float clamp_float(float value, float min_value, float max_value)
 
     return value;
 }
+
+
+

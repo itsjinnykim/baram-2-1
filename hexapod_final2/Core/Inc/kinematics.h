@@ -32,6 +32,9 @@ extern volatile float leg_joint_angle_deg[LEG_COUNT][JOINTS_PER_LEG];
 extern volatile uint16_t leg_goal_position[LEG_COUNT][JOINTS_PER_LEG];
 extern volatile uint8_t leg_joint_id[LEG_COUNT][JOINTS_PER_LEG];
 extern volatile uint8_t leg_ik_ok[LEG_COUNT];
+extern volatile float leg_roll_z_offset[LEG_COUNT];
+extern volatile float leg_pitch_z_offset[LEG_COUNT];
+extern volatile float leg_balance_z_offset[LEG_COUNT];
 extern volatile uint32_t kinematics_update_count;
 
 void Kinematics_Init(void);
