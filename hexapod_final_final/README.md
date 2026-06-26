@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/29372635/README.md)
 # Hexapod Final
 
 STM32F401RE 기반 6족 로봇 제어 프로젝트이다. EBIMU에서 roll/pitch/yaw를 UART로 받아 현재 자세를 계산하고, AX-12A Dynamixel 18개를 이용해 홈 자세, 시작 인사 동작, 자세 밸런싱을 수행한다.
