@@ -178,7 +178,7 @@ femur angle ~= 160.3 deg
 tibia angle ~= 138.2 deg
 ```
 
-coxa 각도는 다리 방향에 따라 0, -60, -120, 180, 120, 60도 근처가 된다. 이 값은 IK 수학 좌표계 기준이며, 실제 Dynamixel horn 눈금과 1:1로 같지는 않을 수 있다.
+coxa 각도는 다리 방향에 따라 0, -60, -120, 180, 120, 60도 근처가 된다.
 
 ## 밸런싱 제어값
 
@@ -214,89 +214,3 @@ coxa 각도는 다리 방향에 따라 0, -60, -120, 180, 120, 60도 근처가 �
 ```
 
 밸런싱이 이상하게 보이면 먼저 IMU가 몸체에 단단히 고정되어 있는지 확인해야 한다. IMU가 흔들리면 몸체는 가만히 있어도 코드가 계속 기울었다고 판단해서 모터가 불필요하게 보정하고 전류가 튈 수 있다.
-
-## 전류와 전시회 운용 기준
-
-AX-12A는 전류 피크와 발끝 마찰에 민감하다. 현재 하드웨어에서 관찰한 전류 기준은 다음과 같이 운용한다.
-
-```text
-평소 밸런싱: 1.0 ~ 1.5A 부근이면 좋음
-짧은 피크:   1.7 ~ 1.8A대까지 관찰 가능
-주의 구간:   1.9A 근처
-중지 구간:   2.0A 이상 반복
-```
-
-전시회용으로는 기능을 더 키우는 것보다 안정적으로 오래 버티는 것이 중요하다.
-
-권장 사항:
-
-- IMU를 몸체에 단단히 고정한다.
-- 발끝 스티커는 너무 두껍고 마찰이 큰 것보다 얇고 작은 접지면이 유리하다.
-- 바닥은 완전 고무처럼 잡히는 곳보다 살짝 미끄러지는 매끈한 표면이 전류 피크를 줄일 수 있다.
-- 12V 전원선은 가능한 굵고 짧게 사용한다.
-- 12V-GND 사이에 1000uF~2200uF, 16V 이상 전해콘덴서를 추가하면 순간 피크가 조금 부드러워질 수 있다. 극성은 반드시 확인한다.
-- 5~10분 연속 구동 후 모터 온도를 손으로 확인한다.
-
-## 빌드 방법
-
-STM32CubeIDE에서 `hexapod_final` 프로젝트를 열고 Debug 설정으로 빌드/플래시한다.
-
-명령줄 빌드가 필요하면 Debug 폴더에서 STM32CubeIDE가 사용하는 `make`와 ARM GCC 경로가 PATH에 잡혀 있어야 한다.
-
-```powershell
-cd C:\Users\jin\STM32CubeIDE\workspace_1.14.1\hexapod_final\Debug
-make -j8 all
-```
-
-## 디버그할 때 자주 보는 변수
-
-```text
-IMU:
-  imu_rx_count
-  imu_frame_count
-  imu_parse_ok
-  imu_roll
-  imu_pitch
-  imu_yaw
-
-Balance:
-  balance_base_roll
-  balance_base_pitch
-  balance_roll_error
-  balance_pitch_error
-  balance_roll_cmd
-  balance_pitch_cmd
-  balance_update_count
-
-Dynamixel:
-  dxl_comm_success_count
-  dxl_comm_fail_count
-  dxl_last_diag
-  dxl_measured_home[18]
-  dxl_home_capture_done
-
-Kinematics:
-  leg_ik_ok[6]
-  leg_goal_position[6][3]
-  leg_balance_z_offset[6]
-  kinematics_update_count
-```
-
-`leg_ik_ok`는 `{1,1,1,1,1,1}`이어야 현재 home 좌표와 링크 길이 기준 IK가 모두 정상이라는 뜻이다.
-
-## 현재 추천 상태
-
-전시회 직전 기준으로는 다음 상태를 유지하는 것을 추천한다.
-
-```text
-APP_AIR_WALK_MODE = 0
-APP_STARTUP_WAVE_MODE = 1
-APP_SEND_GOAL_MODE = 1
-JOINT_MAX_DELTA_TICK = 40
-DXL_SAFE_DELTA_TICK = 40
-DXL_BALANCE_SPEED = 55
-BALANCE_KP_ROLL = 1.40
-BALANCE_KP_PITCH = 1.40
-```
-
-전류가 2.0A 이상 반복해서 뜨면 각도/속도/마찰 중 하나를 낮춰야 한다.
